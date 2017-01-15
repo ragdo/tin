@@ -1,6 +1,7 @@
+#include "Client.h"
+
 #include <iostream>
 
-#include "Client.h"
 
 int main() {
     std::cout << "Starting client..." << std::endl;
