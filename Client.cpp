@@ -7,7 +7,7 @@
 
 int Client::read_cnt;
 char* Client::read_ptr;
-char Client::read_buf[MAXLINE];
+char Client::read_buf[LINE_LENGTH_LIMIT];
 
 int Client::tcpEchoClient(char *ip) {
     int					sockfd;
@@ -18,7 +18,7 @@ int Client::tcpEchoClient(char *ip) {
 
     bzero(&servaddr, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
-    servaddr.sin_port = htons(SERV_PORT);
+    servaddr.sin_port = htons(SERVER_PORT);
 
     Inet_pton(AF_INET, ip, &servaddr.sin_addr);
 
@@ -66,14 +66,14 @@ void Client::Inet_pton(int family, const char *strptr, void *addrptr) {
 }
 
 void Client::str_cli(FILE *fp, int sockfd) {
-    char sendline[MAXLINE];
-    char recvline[MAXLINE];
+    char sendline[LINE_LENGTH_LIMIT];
+    char recvline[LINE_LENGTH_LIMIT];
 
-    while(Fgets(sendline, MAXLINE, fp) != NULL)
+    while(Fgets(sendline, LINE_LENGTH_LIMIT, fp) != NULL)
     {
         Server::Writen(sockfd, sendline, strlen(sendline));
 
-        if(Readline(sockfd, recvline, MAXLINE) == 0)
+        if(Readline(sockfd, recvline, LINE_LENGTH_LIMIT) == 0)
         {
             logError("str_cli: server terminated prematurely");
         }

@@ -1,168 +1,204 @@
 #include "Server.h"
 
+#include <cstring>
+
+#include <vector>
+
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
+#include <iostream>
 
-#include <strings.h>
-
-int Server::tcpEchoServer() {
+using std::vector;
 
 
-        int					i, maxi, maxfd, listenfd, connfd, sockfd;
-        int					nready, client[FD_SETSIZE];
-        ssize_t				n;
-        fd_set				rset, allset;
-        char				buf[MAXLINE];
-        socklen_t			clilen;
-        struct sockaddr_in	cliaddr, servaddr;
+int Server::tcpEchoServer()
+{
+    int maxActiveSockDesc = STDERR_FILENO;
+    fd_set readSet;
+    fd_set allSet;
+    vector<int> clientSockDescs;
 
-        listenfd = Socket(AF_INET, SOCK_STREAM, 0);
+    struct sockaddr_in serverAddress = {};
+    int listenSockDesc = Socket(AF_INET, SOCK_STREAM, 0);
 
-        bzero(&servaddr, sizeof(servaddr));
-        servaddr.sin_family      = AF_INET;
-        servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-        servaddr.sin_port        = htons(SERV_PORT);
+    serverAddress.sin_family = AF_INET;
+    serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
+    serverAddress.sin_port = htons(SERVER_PORT);
 
-        Bind(listenfd, (struct sockaddr *) &servaddr, sizeof(servaddr));
+    Bind(listenSockDesc, (struct sockaddr *) &serverAddress, sizeof(serverAddress));
 
-        Listen(listenfd, LISTENQ);
+    Listen(listenSockDesc, LISTEN_QUEUE);
+    maxActiveSockDesc = listenSockDesc;
 
-        maxfd = listenfd;			/* initialize */
-        maxi = -1;					/* index into client[] array */
-        for (i = 0; i < FD_SETSIZE; i++)
-            client[i] = -1;			/* -1 indicates available entry */
-        FD_ZERO(&allset);
-        FD_SET(listenfd, &allset);
-/* end fig01 */
+    FD_ZERO(&allSet);
+    FD_SET(listenSockDesc, &allSet);
 
-/* include fig02 */
-        for ( ; ; ) {
-            rset = allset;		/* structure assignment */
-            nready = Select(maxfd+1, &rset, NULL, NULL, NULL);
+    while(true)
+    {
+        readSet = allSet;
 
-            if (FD_ISSET(listenfd, &rset)) {	/* new client connection */
-                clilen = sizeof(cliaddr);
-                connfd = Accept(listenfd, (struct sockaddr *) &cliaddr, &clilen);
-#ifdef	NOTDEF
-                printf("new client: %s, port %d\n",
-					Inet_ntop(AF_INET, &cliaddr.sin_addr, 4, NULL),
-					ntohs(cliaddr.sin_port));
-#endif
+        int readySockCount = Select(maxActiveSockDesc + 1,
+                                    &readSet,
+                                    nullptr,
+                                    nullptr,
+                                    nullptr);
 
-                for (i = 0; i < FD_SETSIZE; i++)
-                    if (client[i] < 0) {
-                        client[i] = connfd;	/* save descriptor */
-                        break;
-                    }
-                if (i == FD_SETSIZE) {
-                    logError("too many clients");
-                    exit(-1);
-                }
+        if(FD_ISSET(listenSockDesc, &readSet))
+        {
+            struct sockaddr_in clientAddress = {};
+            socklen_t clientAddressSize = sizeof(clientAddress);
 
-                FD_SET(connfd, &allset);	/* add new descriptor to set */
-                if (connfd > maxfd)
-                    maxfd = connfd;			/* for select */
-                if (i > maxi)
-                    maxi = i;				/* max index in client[] array */
+            int connectionSockDesc = Accept(listenSockDesc,
+                                            (struct sockaddr *) &clientAddress,
+                                            &clientAddressSize);
 
-                if (--nready <= 0)
-                    continue;				/* no more readable descriptors */
+            if (clientSockDescs.size() + 1 <= FD_SETSIZE)
+            {
+                clientSockDescs.push_back(connectionSockDesc);
+            }
+            else
+            {
+                logError("Too many clients.");
+                exit(-1);
             }
 
-            for (i = 0; i <= maxi; i++) {	/* check all clients for data */
-                if ( (sockfd = client[i]) < 0)
-                    continue;
-                if (FD_ISSET(sockfd, &rset)) {
-                    if ( (n = Read(sockfd, buf, MAXLINE)) == 0) {
-                        /*4connection closed by client */
-                        Close(sockfd);
-                        FD_CLR(sockfd, &allset);
-                        client[i] = -1;
-                    } else
-                        Writen(sockfd, buf, n);
+            FD_SET(connectionSockDesc, &allSet);
 
-                    if (--nready <= 0)
-                        break;				/* no more readable descriptors */
-                }
+            if (connectionSockDesc > maxActiveSockDesc) {
+                maxActiveSockDesc = connectionSockDesc;
+            }
+
+            if (--readySockCount <= 0) {
+                continue;
             }
         }
 
-/* end fig02 */
+        auto i = std::begin(clientSockDescs);
 
+        while(i != std::end(clientSockDescs))
+        {
+            int clientSockDesc = *i;
 
+            if(FD_ISSET(clientSockDesc, &readSet))
+            {
+                char buf[LINE_LENGTH_LIMIT];
+                ssize_t recvBytesCount = 0;
 
+                if((recvBytesCount = Read(clientSockDesc, buf, LINE_LENGTH_LIMIT)) == 0)
+                {
+                    Close(clientSockDesc);
+                    FD_CLR(clientSockDesc, &allSet);
+                    clientSockDescs.erase(i);
+                }
+                else
+                {
+                    Writen(clientSockDesc, buf, recvBytesCount);
+                }
 
+                if(--readySockCount <= 0)
+                {
+                    break;
+                }
+            }
+        }
+    }
 
     return 0;
 }
 
-int Server::Socket(int family, int type, int protocol) {
-    int n;
+int Server::Socket(int family, int type, int protocol)
+{
+    int sockDesc;
 
-    if((n = socket(family, type, protocol)) < 0)
+    if((sockDesc = socket(family, type, protocol)) < 0)
     {
         logError("socket error");
     }
 
-    return n;
+    return sockDesc;
 }
 
-void Server::logError(string error) {
-
-}
-
-void Server::Bind(int fd, const struct sockaddr *sa, __socklen_t salen) {
-    if(bind(fd, sa, salen) < 0)
+void Server::Bind(int sockDesc, const struct sockaddr *sockAddr, socklen_t sockAddrLen)
+{
+    if(bind(sockDesc, sockAddr, sockAddrLen) < 0)
     {
         logError("bind error");
     }
 }
 
-void Server::Listen(int fd, int backlog) {
-    if(listen(fd, backlog) < 0)
+void Server::Listen(int sockDesc, int backlog) {
+    if(listen(sockDesc, backlog) < 0)
     {
         logError("listen error");
     }
 }
 
-int Server::Accept(int fd, struct sockaddr *sa, socklen_t *salenptr) {
-    int n;
+int Server::Accept(int sockDesc, struct sockaddr *sockAddr, socklen_t *sockAddrLenPtr)
+{
+    int newConnSockDesc;
 
-    if((n = accept(fd, sa, salenptr)) < 0)
+    if((newConnSockDesc = accept(sockDesc, sockAddr, sockAddrLenPtr)) < 0)
     {
         logError("accept error");
     }
 
-    return n;
+    return newConnSockDesc;
 
 }
 
-int Server::Select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout) {
-    int n;
+int Server::Select(int activeSockDescCount, fd_set *readSockDescSet,
+                                            fd_set *writeSockDescSet,
+                                            fd_set *exceptSockDescSet,
+                                            struct timeval *timeout)
+{
+    int readySockCount;
 
-    if((n = select(nfds, readfds, writefds, exceptfds, timeout)) < 0)
+    if((readySockCount = select(activeSockDescCount, readSockDescSet,
+                                                     writeSockDescSet,
+                                                     exceptSockDescSet,
+                                                     timeout))
+                                                     < 0)
     {
         logError("select error");
     }
 
-    return n;
+    return readySockCount;
 }
 
-ssize_t Server::writen(int fd, const void *vptr, size_t n) {
-    size_t nleft;
-    ssize_t nwritten;
-    const char *ptr;
-
-    ptr = (const char *) vptr;
-    nleft = n;
-
-    while(nleft > 0)
+void Server::Close(int sockDesc)
+{
+    if(close(sockDesc) == -1)
     {
-        if((nwritten = write(fd, ptr, nleft)) <= 0)
+        logError("close error");
+    }
+}
+
+ssize_t Server::Read(int sockDesc, void *recvBuffer, size_t bytesCount)
+{
+    ssize_t recvBytes;
+
+    if((recvBytes = read(sockDesc, recvBuffer, bytesCount)) == -1)
+    {
+        logError("read error");
+    }
+
+    return recvBytes;
+}
+
+ssize_t Server::writen(int sockDesc, const void *sendBuffer, size_t bytesCount)
+{
+    const char *bufferPointer = (const char *) sendBuffer;
+    size_t bytesLeft = bytesCount;
+    ssize_t bytesWritten = 0;
+
+    while(bytesLeft > 0)
+    {
+        if((bytesWritten = write(sockDesc, bufferPointer, bytesLeft)) <= 0)
         {
-            if(nwritten < 0 && errno == EINTR)
+            if(bytesWritten < 0 && errno == EINTR)
             {
-                nwritten = 0;
+                bytesWritten = 0;
             }
             else
             {
@@ -170,34 +206,22 @@ ssize_t Server::writen(int fd, const void *vptr, size_t n) {
             }
         }
 
-        nleft -= nwritten;
-        ptr += nwritten;
+        bytesLeft -= bytesWritten;
+        bufferPointer += bytesWritten;
     }
 
-    return n;
+    return bytesCount;
 }
 
-void Server::Writen(int fd, void *ptr, size_t nbytes) {
-    if(writen(fd, ptr, nbytes) != nbytes)
+void Server::Writen(int sockDesc, void *sendBuffer, size_t bytesCount)
+{
+    if(writen(sockDesc, sendBuffer, bytesCount) != bytesCount)
     {
         logError("writen error");
     }
 }
 
-void Server::Close(int fd) {
-    if(close(fd) == -1)
-    {
-        logError("close error");
-    }
-}
-
-ssize_t Server::Read(int fd, void *ptr, size_t nbytes) {
-    ssize_t n;
-
-    if((n = read(fd, ptr, nbytes)) == -1)
-    {
-        logError("read error");
-    }
-
-    return n;
+void Server::logError(string error)
+{
+    std::cerr << "Error: " << error << std::endl;
 }

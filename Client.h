@@ -11,7 +11,7 @@ public:
 
     static int read_cnt;
     static char* read_ptr;
-    static char read_buf[MAXLINE];
+    static char read_buf[LINE_LENGTH_LIMIT];
 
 
 
