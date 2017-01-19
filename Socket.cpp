@@ -169,9 +169,27 @@ ssize_t Socket::my_read(int fd, char *ptr) {
     return(1);
 }
 
+ssize_t Socket::Sendto(int sockfd,char *buf, size_t len, int flags, const struct sockaddr *dest, socklen_t addrlen)
+{
+    ssize_t n;
+    if((n = sendto(sockfd,buf,len,flags,dest,addrlen)) < 0)
+    {
+        logError("sendto error");
+    }
+    return n;
+}
+
+ssize_t Socket::Recvfrom(int sfd, char *buf, size_t nbytes, int flags, struct sockaddr *from, socklen_t *addrlen)
+{
+    ssize_t n;
+    if((n = recvfrom(sfd,buf,nbytes,flags,from,addrlen)) < 0)
+    {
+        logError("recvfrom error");
+    }
+    return n;
+}
 
 void Socket::logError(string error)
 {
     std::cerr << "Error: " << error << std::endl;
 }
-

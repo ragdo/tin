@@ -2,8 +2,10 @@
 #define TIN_SOCKET_H
 
 #include <string>
-
+#include <cstdlib>
+#include <stdlib.h>
 #include <unistd.h>
+#include <errno.h>
 
 using std::string;
 
@@ -34,6 +36,9 @@ public:
     static ssize_t my_read(int fd, char *ptr);
 
     static void logError(string error);
+
+    static ssize_t Sendto(int sockfd,char *buf, size_t len, int flags, const struct sockaddr *dest, socklen_t addrlen);
+    static ssize_t Recvfrom(int sfd, char *buf, size_t nbytes, int flags, struct sockaddr *from, socklen_t *addrlen);
 
 private:
     static ssize_t writeBytes(int sockDesc, const void *sendBuffer, size_t bytesCount);
