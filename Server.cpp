@@ -108,6 +108,73 @@ int Server::tcpEchoServer()
     return 0;
 }
 
+int Server::udpEchoServer()
+{
+    int maxActiveSockDesc = STDERR_FILENO;
+
+    fd_set readSet, writeSet, allSet;
+    vector<int> clientSockDescs;
+
+    struct sockaddr_in serverAddress = {};
+
+    int listenSockDesc = Socket::CreateSocket(AF_INET, SOCK_DGRAM, 0);
+
+    serverAddress.sin_family = AF_INET;
+    serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
+    serverAddress.sin_port = htons(SERVER_PORT);
+
+    Socket::Bind(listenSockDesc, (struct sockaddr *) &serverAddress, sizeof(serverAddress));
+
+    maxActiveSockDesc = listenSockDesc;
+
+    FD_ZERO(&allSet);
+    FD_SET(listenSockDesc, &allSet);
+
+    /**************************/
+    while(true)
+    {
+        int buflen = 1024;
+        char buf[buflen];
+        readSet = allSet;
+        int nbytes;
+        int j_ntohs;
+        bzero(buf,buflen);
+        FD_ZERO(&readSet);
+        FD_SET(listenSockDesc,&readSet);
+        int readySockCount = Select(maxActiveSockDesc + 1,
+                                    &readSet,
+                                    &writeSet,
+                                    nullptr,
+                                    nullptr);
+
+        struct sockaddr_in clientAddress = {};
+        socklen_t clientAddressSize = sizeof(clientAddress);
+
+
+        if(FD_ISSET(listenSockDesc, &readSet))
+        {
+            printf("Server is ready to read.\n");
+
+            nbytes = Socket::Recvfrom(listenSockDesc,buf,buflen,0,(struct sockaddr*)&clientAddress,&clientAddressSize);
+
+            //j_ntohs = ntohs(clientAddress.sin_port);
+            printf("Server received: %s\n", buf);
+            FD_CLR(listenSockDesc, &readSet);
+        }
+
+        FD_ZERO(&writeSet);
+        FD_SET(listenSockDesc,&writeSet);
+        if(FD_ISSET(listenSockDesc, &writeSet))
+        {
+            printf("Server is ready to write.\n");
+
+            nbytes = Socket::Sendto(listenSockDesc,buf,buflen,0,(struct sockaddr*)&clientAddress,clientAddressSize);
+
+            FD_CLR(listenSockDesc, &writeSet);
+        }
+    }
+    return 0;
+}
 
 int Server::Select(int activeSockDescCount, fd_set *readSockDescSet,
                    fd_set *writeSockDescSet,

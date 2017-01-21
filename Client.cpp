@@ -25,6 +25,40 @@ int Client::tcpEchoClient(string serverIP)
     return 0;
 }
 
+int Client::udpEchoClient(string serverIP)
+{
+    int sockDesc;
+    int buflen = 1024;
+    char buffer[buflen];
+    struct sockaddr_in serverAddress = {};
+
+    sockDesc = Socket::CreateSocket(AF_INET, SOCK_DGRAM, 0);
+
+    serverAddress.sin_family = AF_INET;
+    serverAddress.sin_port = htons(SERVER_PORT);
+    Socket::InetPToN(AF_INET, serverIP.c_str(), &serverAddress.sin_addr);
+
+    memset(serverAddress.sin_zero, '\0', sizeof serverAddress.sin_zero);
+
+    socklen_t addr_size = sizeof serverAddress;
+
+    while(1)
+    {
+        fflush(stdin);
+        printf("Type message:");
+        Fgets(buffer,buflen,stdin);
+        int nBytes = strlen(buffer) + 1;
+        printf("You typed: %s",buffer);
+
+        Socket::Sendto(sockDesc,buffer,nBytes,0,(struct sockaddr *)&serverAddress,addr_size);
+        bzero(buffer,strlen(buffer));
+        nBytes = Socket::Recvfrom(sockDesc,buffer,buflen,0,NULL,NULL);
+
+        printf("Client received from server: %s\n",buffer);
+    }
+    return 0;
+}
+
 void Client::str_cli(FILE *fp, int sockfd) {
     char sendline[LINE_LENGTH_LIMIT];
     char recvline[LINE_LENGTH_LIMIT];

@@ -12,6 +12,7 @@ using std::string;
 class Client {
 public:
     static int tcpEchoClient(string serverIP);
+    static int udpEchoClient(string serverIP);
 
     static void str_cli(FILE *fp, int sockfd);
 
