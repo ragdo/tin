@@ -45,11 +45,17 @@ int Client::udpEchoClient(string serverIP)
     while(1)
     {
         fflush(stdin);
+        /*
         printf("Type message:");
         Fgets(buffer,buflen,stdin);
         int nBytes = strlen(buffer) + 1;
         printf("You typed: %s",buffer);
-
+        */
+        string login = logIn();
+        cout << login << endl;
+        int nBytes = login.length() + 1;
+        //char *buf = new char[];
+        strcpy(buffer, login.c_str());
         Socket::Sendto(sockDesc,buffer,nBytes,0,(struct sockaddr *)&serverAddress,addr_size);
         bzero(buffer,strlen(buffer));
         nBytes = Socket::Recvfrom(sockDesc,buffer,buflen,0,NULL,NULL);
@@ -75,6 +81,42 @@ void Client::str_cli(FILE *fp, int sockfd) {
         Fputs(recvline, stdout);
     }
 
+}
+
+string Client::ticketRequest(string username, string password, int port)
+{
+    string portStr = Converter::toString(port);
+    string tckt = "TCKT";
+
+    string data = "";
+
+    data += Converter::fill(Converter::toString(tckt.length()), '0', 3) + tckt;
+    data += Converter::fill(Converter::toString(username.length()), '0', 3) + username;
+    data += Converter::fill(Converter::toString(password.length()), '0', 3) + password;
+    data += Converter::fill(Converter::toString(portStr.length()), '0', 3) + portStr;
+
+    return data;
+}
+
+string Client::logIn()
+{
+    string username = "";
+    string password = "";
+
+    cout << "Type username:" << endl;
+    getline(cin,username);
+    cout << "Type password:" << endl;
+    getline(cin,password);
+    RSA* rsa = new RSA(293,233);
+    string code = rsa->encode(password);
+    cout << code <<endl;
+    cout << rsa->getE() << endl;
+    cout << rsa->getN() << endl;
+    //string decode = rsa->decode(code);
+    //cout << decode <<endl;
+    string ticket = ticketRequest(username,code,7);
+    delete rsa;
+    return ticket;
 }
 
 void Client::Fputs(const char *ptr, FILE *stream) {

@@ -13,6 +13,10 @@ public:
     int powMod(int a, int exp, int n);
     std::string encode(std::string data);
     std::string decode(std::string data);
+    std::string encode(std::string data, int e, int n);
+    std::string decode(std::string data, int e, int n);
+    int getE();
+    int getN();
 };
 
 #endif // RSA_INCLUDED

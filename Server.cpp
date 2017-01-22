@@ -12,6 +12,17 @@
 
 using std::vector;
 
+Server::Server()
+{
+    rsa = new RSA(293,233);
+    database = new UsersDatabase("users");
+}
+
+Server::~Server()
+{
+    delete rsa;
+    delete database;
+}
 
 int Server::tcpEchoServer()
 {
@@ -159,6 +170,9 @@ int Server::udpEchoServer()
 
             //j_ntohs = ntohs(clientAddress.sin_port);
             printf("Server received: %s\n", buf);
+            string response = processMessage(buf);
+            nbytes = response.length();
+            strcpy(buf,response.c_str());
             FD_CLR(listenSockDesc, &readSet);
         }
 
@@ -211,3 +225,73 @@ void Server::logError(string error)
 {
     std::cerr << "Error: " << error << std::endl;
 }
+
+string Server::processMessage(string message)
+{
+    string serviceSizeStr = message.substr(0,3);
+    int servSize = Converter::toInt(serviceSizeStr);
+    string service = message.substr(3,servSize);
+
+    string response;
+
+    RSA *rsa = new RSA(293,233);
+    UsersDatabase *database = new UsersDatabase("users");
+
+    if(service == "TCKT")
+    {
+        string usernameSizeStr = message.substr(3+servSize,3);
+        int unSize = Converter::toInt(usernameSizeStr);
+        string username = message.substr(6+servSize,unSize);
+        string passwordSizeStr = message.substr(6+servSize+unSize,3);
+        int pwSize = Converter::toInt(passwordSizeStr);
+        string password = message.substr(9+servSize+unSize,pwSize);
+        string portSizeStr = message.substr(9+servSize+unSize+pwSize,3);
+        int poSize = Converter::toInt(portSizeStr);
+        string portStr = message.substr(12+servSize+unSize+pwSize,poSize);
+
+        cout << username << endl;
+        cout << password << endl;
+        cout << portStr << endl;
+        int reqPort = Converter::toInt(portStr);
+        password = rsa->decode(password);
+        cout << password << endl;
+        bool pass = database->checkPassword(username,password);
+        if(!pass)
+        {
+            response = "Wrong username or password";
+            logError(response);
+            return response;
+        }
+        if(reqPort == 7)
+        {
+            bool pass = database->checkService(username,"echo");
+            if(!pass)
+            {
+                response = "Service not allowed";
+                logError(response);
+                return response;
+            }
+            return TicketManager::createTicket(4,"127.0.0.1",7,1000);
+        }
+        else if(reqPort == 13)
+        {
+        }
+        else
+        {
+            response = "Unknown service";
+            logError(response);
+            return response;
+        }
+    }
+    else if(service == "SRVC")
+    {
+    }
+    else
+    {
+        logError("No service: "+service);
+    }
+}
+
+
+
+

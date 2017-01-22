@@ -5,6 +5,9 @@
 #include <sys/time.h>
 #include <sys/select.h>
 #include <sys/types.h>
+#include "RSA.h"
+#include "UsersDatabase.h"
+#include "TicketManager.h"
 
 using std::string;
 
@@ -14,7 +17,12 @@ using std::string;
 
 
 class Server {
+    RSA *rsa;
+    UsersDatabase *database;
 public:
+    Server();
+    ~Server();
+
     static int tcpEchoServer();
 
     static int udpEchoServer();
@@ -24,6 +32,8 @@ public:
     static ssize_t Read(int sockDesc, void *recvBuffer, size_t bytesCount);
 
     static void logError(string error);
+
+    static string processMessage(string message);
 };
 
 
