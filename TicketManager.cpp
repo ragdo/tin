@@ -109,3 +109,30 @@ int TicketManager::checkTicket(string ticket, int IPver, string IPaddr, int port
 
     return 10;
 }
+
+string TicketManager::printTicket(string ticket)
+{
+    int size;
+    int index = 0;
+    string ret = "";
+    string IPverStrT = sub(ticket, index);
+    string IPaddrT = sub(ticket, index);
+    string portStrT = sub(ticket, index);
+    string timeT = sub(ticket, index);
+    long int tim = Converter::toInt(timeT);
+    time_t now = time( NULL );
+    bool valid = tim > now;
+
+
+    ret += "Wersja IP: " + IPverStrT;
+    ret += " adres IP: " + IPaddrT;
+    ret += " usluga na porcie: " + portStrT;
+    ret += " data waznosci: " + Converter::toTimeStr(tim);
+    ret += " wazny: ";
+    if(valid)
+        ret += "tak\n";
+    else
+        ret += "nie\n";
+
+    return ret;
+}

@@ -148,24 +148,3 @@ bool UsersDatabase::checkService(string username, string service)
     return false;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

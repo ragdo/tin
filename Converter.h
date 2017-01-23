@@ -1,6 +1,8 @@
 #ifndef CONVERTER_H_INCLUDED
 #define CONVERTER_H_INCLUDED
 
+#include <cstdio>
+#include <ctime>
 #include <sstream>
 
 using namespace std;
@@ -47,6 +49,20 @@ public:
             hash = hash * 101  +  *s++;
         }
         return hash;
+    }
+
+    static string toTimeStr(time_t seconds)
+    {
+        //time(&seconds);
+        tm* timeInfo;
+        char buffer[80];
+
+        //time(&seconds);
+        timeInfo = localtime(&seconds);
+
+        strftime(buffer,80,"%d-%m-%Y : H:%H min:%M sec:%S",timeInfo);
+
+        return buffer;
     }
 };
 

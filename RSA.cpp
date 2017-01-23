@@ -113,3 +113,63 @@ string RSA::decode(string data)
     }
     return ret;
 }
+
+string RSA::encode(string data, int e, int n)
+{
+    string ret = "";
+    for(int i = 0; i < (int)data.length() / 2; i++)
+    {
+        char c1 = data.c_str()[2*i];
+        char c2 = data.c_str()[2*i+1];
+        int l = (c1 << 8) | c2;
+        int encoded = powMod(l, e, n);
+        ret += Converter::fill(Converter::toString(encoded), '0', 5);
+    }
+    if(data.length() % 2 != 0)
+    {
+        int l = data.c_str()[data.length()-1];
+        int encoded = powMod(l, e, n);
+        ret += Converter::fill(Converter::toString(encoded), '0', 5);
+    }
+    return ret;
+}
+
+string RSA::decode(string data, int d, int n)
+{
+    if(data.length() % 5 != 0)
+        return "";
+
+    string ret = "";
+    for(int i = 0; i < (int)data.length() / 5; i++)
+    {
+        string str = data.substr(i * 5, 5);
+        int l = Converter::toInt(str);
+        if(l < 0)
+            return "";
+        int decoded = powMod(l, d, n);
+
+        if(decoded < 256)
+        {
+            char c = decoded;
+            ret += c;
+        }
+        else
+        {
+            char c1 = decoded >> 8;
+            char c2 = decoded & 255;
+            ret += c1;
+            ret += c2;
+        }
+    }
+    return ret;
+}
+
+int RSA::getE()
+{
+    return e;
+}
+
+int RSA::getN()
+{
+    return n;
+}
