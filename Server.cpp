@@ -12,6 +12,153 @@
 
 using std::vector;
 
+Server::Server()
+{
+    rsa = new RSA(293,233);
+    database = new UsersDatabase("users");
+}
+
+Server::~Server()
+{
+    delete rsa;
+    delete database;
+}
+
+int Server::tcpUdpEchoServer()
+{
+    int maxActiveSockDesc = STDERR_FILENO;
+    fd_set readSet;
+    fd_set allSet;
+    vector<int> clientSockDescs;
+
+    //create server tcp socket
+    struct sockaddr_in tcpServerAddress = {};
+    int tcpListenSockDesc = Socket::CreateSocket(AF_INET, SOCK_STREAM, 0);
+    tcpServerAddress.sin_family = AF_INET;
+    tcpServerAddress.sin_addr.s_addr = htonl(INADDR_ANY);
+    tcpServerAddress.sin_port = htons(SERVER_PORT);
+    Socket::Bind(tcpListenSockDesc, (struct sockaddr *) &tcpServerAddress, sizeof(tcpServerAddress));
+    Socket::Listen(tcpListenSockDesc, LISTEN_QUEUE);
+    maxActiveSockDesc = tcpListenSockDesc;
+
+    //create server udp socket
+    struct sockaddr_in udpServerAddress = {};
+    int udpListenSockDesc = Socket::CreateSocket(AF_INET, SOCK_DGRAM, 0);
+    udpServerAddress.sin_family = AF_INET;
+    udpServerAddress.sin_addr.s_addr = htonl(INADDR_ANY);
+    udpServerAddress.sin_port = htons(SERVER_PORT);
+    Socket::Bind(udpListenSockDesc, (struct sockaddr *) &udpServerAddress, sizeof(udpServerAddress));
+    maxActiveSockDesc = max(tcpListenSockDesc, udpListenSockDesc);
+
+    //prepare FD_SET
+    FD_ZERO(&allSet);
+    FD_SET(tcpListenSockDesc, &allSet);
+    FD_SET(udpListenSockDesc, &allSet);
+
+    //server loop
+    while(true)
+    {
+        readSet = allSet;
+
+        int readySockCount = Select(maxActiveSockDesc + 1,
+                                    &readSet,
+                                    nullptr,
+                                    nullptr,
+                                    nullptr);
+
+        if(FD_ISSET(tcpListenSockDesc, &readSet))
+        {
+            struct sockaddr_in clientAddress = {};
+            socklen_t clientAddressSize = sizeof(clientAddress);
+
+            int connectionSockDesc = Socket::Accept(tcpListenSockDesc,
+                                                    (struct sockaddr *) &clientAddress,
+                                                    &clientAddressSize);
+
+            if (clientSockDescs.size() + 1 <= FD_SETSIZE)
+            {
+                clientSockDescs.push_back(connectionSockDesc);
+            }
+            else
+            {
+                logError("Too many clients.");
+                exit(-1);
+            }
+
+            FD_SET(connectionSockDesc, &allSet);
+
+            if (connectionSockDesc > maxActiveSockDesc) {
+                maxActiveSockDesc = connectionSockDesc;
+            }
+
+            if (--readySockCount <= 0) {
+                continue;
+            }
+        }
+/************************** UDP ANSWER *********************************/
+        if(FD_ISSET(udpListenSockDesc, &readSet))
+        {
+
+            struct sockaddr_in clientAddress = {};
+            socklen_t clientAddressSize = sizeof(clientAddress);
+            char address[128];
+            if(inet_ntop(AF_INET,&clientAddress.sin_addr, address, sizeof(address)) == NULL)
+                logError("Error: inet_ntop");
+            char buffer[LINE_LENGTH_LIMIT];
+            ssize_t recvBytesCount = 0;
+
+            printf("Server is ready to read.\n");
+            recvBytesCount = Socket::Recvfrom(udpListenSockDesc, buffer, LINE_LENGTH_LIMIT,
+                                              0, (struct sockaddr *) &clientAddress, &clientAddressSize);
+
+
+
+            //nbytes = Socket::Recvfrom(listenSockDesc,buf,buflen,0,(struct sockaddr*)&clientAddress,&clientAddressSize);
+
+            printf("Server received: %s\n", buffer);
+            string response = processMessage(buffer, address);
+            ssize_t sendBytesCount = response.length();
+            strcpy(buffer,response.c_str());
+            //FD_CLR(listenSockDesc, &readSet);
+
+            Socket::Sendto(udpListenSockDesc, buffer, sendBytesCount,
+                           0, (struct sockaddr *) &clientAddress, clientAddressSize);
+        }
+
+        auto i = std::begin(clientSockDescs);
+
+        while(i != std::end(clientSockDescs))
+        {
+            int clientSockDesc = *i;
+
+            if(FD_ISSET(clientSockDesc, &readSet))
+            {
+                char buf[LINE_LENGTH_LIMIT];
+                ssize_t recvBytesCount = 0;
+
+                if((recvBytesCount = Read(clientSockDesc, buf, LINE_LENGTH_LIMIT)) == 0)
+                {
+                    Socket::Close(clientSockDesc);
+                    FD_CLR(clientSockDesc, &allSet);
+                    clientSockDescs.erase(i);
+                }
+                else
+                {
+                    Socket::WriteBytes(clientSockDesc, buf, recvBytesCount);
+                }
+
+                if(--readySockCount <= 0)
+                {
+                    break;
+                }
+            }
+
+            ++i;
+        }
+    }
+
+    return 0;
+}
 
 int Server::tcpEchoServer()
 {
@@ -102,6 +249,7 @@ int Server::tcpEchoServer()
                     break;
                 }
             }
+            ++i;
         }
     }
 
@@ -159,6 +307,9 @@ int Server::udpEchoServer()
 
             //j_ntohs = ntohs(clientAddress.sin_port);
             printf("Server received: %s\n", buf);
+            //string response = processMessage(buf, new string("sdsd"));
+            //nbytes = response.length();
+            //strcpy(buf,response.c_str());
             FD_CLR(listenSockDesc, &readSet);
         }
 
@@ -211,3 +362,74 @@ void Server::logError(string error)
 {
     std::cerr << "Error: " << error << std::endl;
 }
+
+string Server::processMessage(string message, string address)
+{
+    string serviceSizeStr = message.substr(0,3);
+    int servSize = Converter::toInt(serviceSizeStr);
+    string service = message.substr(3,servSize);
+
+    string response;
+
+    RSA *rsa = new RSA(293,233);
+    UsersDatabase *database = new UsersDatabase("users");
+
+    if(service == "TCKT")
+    {
+        string usernameSizeStr = message.substr(3+servSize,3);
+        int unSize = Converter::toInt(usernameSizeStr);
+        string username = message.substr(6+servSize,unSize);
+        string passwordSizeStr = message.substr(6+servSize+unSize,3);
+        int pwSize = Converter::toInt(passwordSizeStr);
+        string password = message.substr(9+servSize+unSize,pwSize);
+        string portSizeStr = message.substr(9+servSize+unSize+pwSize,3);
+        int poSize = Converter::toInt(portSizeStr);
+        string portStr = message.substr(12+servSize+unSize+pwSize,poSize);
+
+        //cout << username << endl;
+        //cout << password << endl;
+        //cout << portStr << endl;
+        int reqPort = Converter::toInt(portStr);
+        password = rsa->decode(password);
+        cout << password << endl;
+        bool pass = database->checkPassword(username,password);
+        if(!pass)
+        {
+            response = "21";
+            logError(response);
+            return response;
+        }
+        if(reqPort == 2007)
+        {
+            bool pass = database->checkService(username,"echo");
+            if(!pass)
+            {
+                response = "22";
+                logError(response);
+                return response;
+            }
+            response = "10"+TicketManager::createTicket(4,address,2007,1000*60*60);
+            return response;
+        }
+        else if(reqPort == 2013)
+        {
+        }
+        else
+        {
+            response = "Unknown service";
+            logError(response);
+            return response;
+        }
+    }
+    else if(service == "SRVC")
+    {
+    }
+    else
+    {
+        logError("No service: "+service);
+    }
+}
+
+
+
+

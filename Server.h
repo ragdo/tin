@@ -5,16 +5,32 @@
 #include <sys/time.h>
 #include <sys/select.h>
 #include <sys/types.h>
+#include "RSA.h"
+#include "UsersDatabase.h"
+#include "TicketManager.h"
 
 using std::string;
 
 #define LINE_LENGTH_LIMIT 4096
 #define SERVER_PORT 34000
+#define SERVER_PORT_TCP_ECHO 34001
+#define SERVER_PORT_UDP_ECHO 34002
+#define SERVER_PORT_UDP_TIME 34003
+#define SERVER_PORT_UDP_TICKET 34004
 #define LISTEN_QUEUE 1024
+#define ECHO_PORT 2007
+#define TIME_PORT 2013
 
 
 class Server {
+    RSA *rsa;
+    UsersDatabase *database;
 public:
+    Server();
+    ~Server();
+
+    static int tcpUdpEchoServer();
+
     static int tcpEchoServer();
 
     static int udpEchoServer();
@@ -24,6 +40,8 @@ public:
     static ssize_t Read(int sockDesc, void *recvBuffer, size_t bytesCount);
 
     static void logError(string error);
+
+    static string processMessage(string message, string address);
 };
 
 
