@@ -14,7 +14,7 @@ public:
     std::string encode(std::string data);
     std::string decode(std::string data);
     std::string encode(std::string data, int e, int n);
-    std::string decode(std::string data, int e, int n);
+    std::string decode(std::string data, int d, int n);
     int getE();
     int getN();
 };

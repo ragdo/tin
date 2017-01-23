@@ -36,7 +36,7 @@ int Server::tcpUdpEchoServer()
     int tcpListenSockDesc = Socket::CreateSocket(AF_INET, SOCK_STREAM, 0);
     tcpServerAddress.sin_family = AF_INET;
     tcpServerAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-    tcpServerAddress.sin_port = htons(SERVER_PORT_TCP_ECHO);
+    tcpServerAddress.sin_port = htons(SERVER_PORT);
     Socket::Bind(tcpListenSockDesc, (struct sockaddr *) &tcpServerAddress, sizeof(tcpServerAddress));
     Socket::Listen(tcpListenSockDesc, LISTEN_QUEUE);
     maxActiveSockDesc = tcpListenSockDesc;
@@ -46,7 +46,7 @@ int Server::tcpUdpEchoServer()
     int udpListenSockDesc = Socket::CreateSocket(AF_INET, SOCK_DGRAM, 0);
     udpServerAddress.sin_family = AF_INET;
     udpServerAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-    udpServerAddress.sin_port = htons(SERVER_PORT_UDP_ECHO);
+    udpServerAddress.sin_port = htons(SERVER_PORT);
     Socket::Bind(udpListenSockDesc, (struct sockaddr *) &udpServerAddress, sizeof(udpServerAddress));
     maxActiveSockDesc = max(tcpListenSockDesc, udpListenSockDesc);
 
@@ -95,17 +95,33 @@ int Server::tcpUdpEchoServer()
                 continue;
             }
         }
-
+/************************** UDP ANSWER *********************************/
         if(FD_ISSET(udpListenSockDesc, &readSet))
         {
+
             struct sockaddr_in clientAddress = {};
             socklen_t clientAddressSize = sizeof(clientAddress);
+            char address[128];
+            if(inet_ntop(AF_INET,&clientAddress.sin_addr, address, sizeof(address)) == NULL)
+                logError("Error: inet_ntop");
             char buffer[LINE_LENGTH_LIMIT];
             ssize_t recvBytesCount = 0;
 
+            printf("Server is ready to read.\n");
             recvBytesCount = Socket::Recvfrom(udpListenSockDesc, buffer, LINE_LENGTH_LIMIT,
                                               0, (struct sockaddr *) &clientAddress, &clientAddressSize);
-            Socket::Sendto(udpListenSockDesc, buffer, recvBytesCount,
+
+
+
+            //nbytes = Socket::Recvfrom(listenSockDesc,buf,buflen,0,(struct sockaddr*)&clientAddress,&clientAddressSize);
+
+            printf("Server received: %s\n", buffer);
+            string response = processMessage(buffer, address);
+            ssize_t sendBytesCount = response.length();
+            strcpy(buffer,response.c_str());
+            //FD_CLR(listenSockDesc, &readSet);
+
+            Socket::Sendto(udpListenSockDesc, buffer, sendBytesCount,
                            0, (struct sockaddr *) &clientAddress, clientAddressSize);
         }
 
@@ -143,7 +159,6 @@ int Server::tcpUdpEchoServer()
 
     return 0;
 }
-
 
 int Server::tcpEchoServer()
 {
@@ -292,9 +307,9 @@ int Server::udpEchoServer()
 
             //j_ntohs = ntohs(clientAddress.sin_port);
             printf("Server received: %s\n", buf);
-            string response = processMessage(buf);
-            nbytes = response.length();
-            strcpy(buf,response.c_str());
+            //string response = processMessage(buf, new string("sdsd"));
+            //nbytes = response.length();
+            //strcpy(buf,response.c_str());
             FD_CLR(listenSockDesc, &readSet);
         }
 
@@ -348,7 +363,7 @@ void Server::logError(string error)
     std::cerr << "Error: " << error << std::endl;
 }
 
-string Server::processMessage(string message)
+string Server::processMessage(string message, string address)
 {
     string serviceSizeStr = message.substr(0,3);
     int servSize = Converter::toInt(serviceSizeStr);
@@ -393,7 +408,7 @@ string Server::processMessage(string message)
                 logError(response);
                 return response;
             }
-            response = "10"+TicketManager::createTicket(4,"127.0.0.1",2007,1000);
+            response = "10"+TicketManager::createTicket(4,address,2007,1000);
             return response;
         }
         else if(reqPort == 2013)

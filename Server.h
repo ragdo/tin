@@ -12,6 +12,7 @@
 using std::string;
 
 #define LINE_LENGTH_LIMIT 4096
+#define SERVER_PORT 34000
 #define SERVER_PORT_TCP_ECHO 34001
 #define SERVER_PORT_UDP_ECHO 34002
 #define SERVER_PORT_UDP_TIME 34003
@@ -40,7 +41,7 @@ public:
 
     static void logError(string error);
 
-    static string processMessage(string message);
+    static string processMessage(string message, string address);
 };
 
 

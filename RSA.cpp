@@ -134,7 +134,7 @@ string RSA::encode(string data, int e, int n)
     return ret;
 }
 
-string RSA::decode(string data, int e, int n)
+string RSA::decode(string data, int d, int n)
 {
     if(data.length() % 5 != 0)
         return "";
