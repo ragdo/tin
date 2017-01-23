@@ -1,4 +1,3 @@
-#include "RSA.h"
 #include "Server.h"
 #include "Socket.h"
 
@@ -23,126 +22,6 @@ Server::~Server()
 {
     delete rsa;
     delete database;
-}
-
-int Server::tcpUdpEchoServer()
-{
-    int maxActiveSockDesc = STDERR_FILENO;
-    fd_set readSet;
-    fd_set allSet;
-    vector<int> clientSockDescs;
-
-    //create server tcp socket
-    struct sockaddr_in tcpServerAddress = {};
-    int tcpListenSockDesc = Socket::CreateSocket(AF_INET, SOCK_STREAM, 0);
-    tcpServerAddress.sin_family = AF_INET;
-    tcpServerAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-    tcpServerAddress.sin_port = htons(SERVER_PORT_TCP_ECHO);
-    Socket::Bind(tcpListenSockDesc, (struct sockaddr *) &tcpServerAddress, sizeof(tcpServerAddress));
-    Socket::Listen(tcpListenSockDesc, LISTEN_QUEUE);
-    maxActiveSockDesc = tcpListenSockDesc;
-
-    //create server udp socket
-    struct sockaddr_in udpServerAddress = {};
-    int udpListenSockDesc = Socket::CreateSocket(AF_INET, SOCK_DGRAM, 0);
-    udpServerAddress.sin_family = AF_INET;
-    udpServerAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-    udpServerAddress.sin_port = htons(SERVER_PORT_UDP_ECHO);
-    Socket::Bind(udpListenSockDesc, (struct sockaddr *) &udpServerAddress, sizeof(udpServerAddress));
-    maxActiveSockDesc = max(tcpListenSockDesc, udpListenSockDesc);
-
-    //prepare FD_SET
-    FD_ZERO(&allSet);
-    FD_SET(tcpListenSockDesc, &allSet);
-    FD_SET(udpListenSockDesc, &allSet);
-
-    //server loop
-    while(true)
-    {
-        readSet = allSet;
-
-        int readySockCount = Select(maxActiveSockDesc + 1,
-                                    &readSet,
-                                    nullptr,
-                                    nullptr,
-                                    nullptr);
-
-        if(FD_ISSET(tcpListenSockDesc, &readSet))
-        {
-            struct sockaddr_in clientAddress = {};
-            socklen_t clientAddressSize = sizeof(clientAddress);
-
-            int connectionSockDesc = Socket::Accept(tcpListenSockDesc,
-                                                    (struct sockaddr *) &clientAddress,
-                                                    &clientAddressSize);
-
-            if (clientSockDescs.size() + 1 <= FD_SETSIZE)
-            {
-                clientSockDescs.push_back(connectionSockDesc);
-            }
-            else
-            {
-                logError("Too many clients.");
-                exit(-1);
-            }
-
-            FD_SET(connectionSockDesc, &allSet);
-
-            if (connectionSockDesc > maxActiveSockDesc) {
-                maxActiveSockDesc = connectionSockDesc;
-            }
-
-            if (--readySockCount <= 0) {
-                continue;
-            }
-        }
-
-        if(FD_ISSET(udpListenSockDesc, &readSet))
-        {
-            struct sockaddr_in clientAddress = {};
-            socklen_t clientAddressSize = sizeof(clientAddress);
-            char buffer[LINE_LENGTH_LIMIT];
-            ssize_t recvBytesCount = 0;
-
-            recvBytesCount = Socket::Recvfrom(udpListenSockDesc, buffer, LINE_LENGTH_LIMIT,
-                                              0, (struct sockaddr *) &clientAddress, &clientAddressSize);
-            Socket::Sendto(udpListenSockDesc, buffer, recvBytesCount,
-                           0, (struct sockaddr *) &clientAddress, clientAddressSize);
-        }
-
-        auto i = std::begin(clientSockDescs);
-
-        while(i != std::end(clientSockDescs))
-        {
-            int clientSockDesc = *i;
-
-            if(FD_ISSET(clientSockDesc, &readSet))
-            {
-                char buf[LINE_LENGTH_LIMIT];
-                ssize_t recvBytesCount = 0;
-
-                if((recvBytesCount = Read(clientSockDesc, buf, LINE_LENGTH_LIMIT)) == 0)
-                {
-                    Socket::Close(clientSockDesc);
-                    FD_CLR(clientSockDesc, &allSet);
-                    clientSockDescs.erase(i);
-                }
-                else
-                {
-                    Socket::WriteBytes(clientSockDesc, buf, recvBytesCount);
-                }
-
-                if(--readySockCount <= 0)
-                {
-                    break;
-                }
-            }
-
-            ++i;
-        }
-    }
-
-    return 0;
 }
 
 int Server::tcpEchoServer()
@@ -234,7 +113,6 @@ int Server::tcpEchoServer()
                     break;
                 }
             }
-
             ++i;
         }
     }
@@ -372,31 +250,32 @@ string Server::processMessage(string message)
         int poSize = Converter::toInt(portSizeStr);
         string portStr = message.substr(12+servSize+unSize+pwSize,poSize);
 
-        cout << username << endl;
-        cout << password << endl;
-        cout << portStr << endl;
+        //cout << username << endl;
+        //cout << password << endl;
+        //cout << portStr << endl;
         int reqPort = Converter::toInt(portStr);
         password = rsa->decode(password);
         cout << password << endl;
         bool pass = database->checkPassword(username,password);
         if(!pass)
         {
-            response = "Wrong username or password";
+            response = "21";
             logError(response);
             return response;
         }
-        if(reqPort == 7)
+        if(reqPort == 2007)
         {
             bool pass = database->checkService(username,"echo");
             if(!pass)
             {
-                response = "Service not allowed";
+                response = "22";
                 logError(response);
                 return response;
             }
-            return TicketManager::createTicket(4,"127.0.0.1",7,1000);
+            response = "10"+TicketManager::createTicket(4,"127.0.0.1",2007,1000);
+            return response;
         }
-        else if(reqPort == 13)
+        else if(reqPort == 2013)
         {
         }
         else
