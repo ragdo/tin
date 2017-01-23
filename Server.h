@@ -28,7 +28,7 @@ public:
     Server();
     ~Server();
 
-    static int Server::tcpUdpEchoServer();
+    static int tcpUdpEchoServer();
 
     static int tcpEchoServer();
 
