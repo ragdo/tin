@@ -6,6 +6,14 @@
 #include <arpa/inet.h>
 #include <iostream>
 
+Client::Client()
+{
+    ticketBase = new TicketBase();
+}
+Client::~Client()
+{
+    delete ticketBase;
+}
 
 int Client::tcpEchoClient(string serverIP)
 {
@@ -15,7 +23,7 @@ int Client::tcpEchoClient(string serverIP)
     sockDesc = Socket::CreateSocket(AF_INET, SOCK_STREAM, 0);
 
     serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(SERVER_PORT_TCP_ECHO);
+    serverAddress.sin_port = htons(SERVER_PORT);
     Socket::InetPToN(AF_INET, serverIP.c_str(), &serverAddress.sin_addr);
 
     Socket::Connect(sockDesc, (struct sockaddr *) &serverAddress, sizeof(serverAddress));
@@ -31,36 +39,55 @@ int Client::udpEchoClient(string serverIP)
     int buflen = 1024;
     char buffer[buflen];
     struct sockaddr_in serverAddress = {};
-
+    int nBytes;
+    string c;
+    char trash;
     sockDesc = Socket::CreateSocket(AF_INET, SOCK_DGRAM, 0);
 
     serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(SERVER_PORT_UDP_ECHO);
+    serverAddress.sin_port = htons(SERVER_PORT);
     Socket::InetPToN(AF_INET, serverIP.c_str(), &serverAddress.sin_addr);
 
     memset(serverAddress.sin_zero, '\0', sizeof serverAddress.sin_zero);
 
     socklen_t addr_size = sizeof serverAddress;
-
     while(1)
     {
         fflush(stdin);
-        /*
-        printf("Type message:");
-        Fgets(buffer,buflen,stdin);
-        int nBytes = strlen(buffer) + 1;
-        printf("You typed: %s",buffer);
-        */
-        string login = logIn();
-        cout << login << endl;
-        int nBytes = login.length() + 1;
-        //char *buf = new char[];
-        strcpy(buffer, login.c_str());
-        Socket::Sendto(sockDesc,buffer,nBytes,0,(struct sockaddr *)&serverAddress,addr_size);
-        bzero(buffer,strlen(buffer));
-        nBytes = Socket::Recvfrom(sockDesc,buffer,buflen,0,NULL,NULL);
+        cout << "Do you want to request (s)ervice or get (t)icket?" << endl;
+        getline(cin,c);
+        if(c == "t") // ticket
+        {
+            string login = logIn();
+            cout << login << endl;
+            nBytes = login.length() + 1;
+            strcpy(buffer, login.c_str());
+            Socket::Sendto(sockDesc,buffer,nBytes,0,(struct sockaddr *)&serverAddress,addr_size);
+            bzero(buffer,strlen(buffer));
+            nBytes = Socket::Recvfrom(sockDesc,buffer,buflen,0,NULL,NULL);
 
-        printf("Client received from server: %s\n",buffer);
+            printf("Client received from server: %s\n",buffer);
+            string bufferString = buffer;
+            if(bufferString.substr(0,2) == "10")
+            {
+                cout << "Received ticket." << endl;
+                bufferString = bufferString.substr(2,bufferString.length()-2);
+                ticketBase->addTicket(bufferString);
+                ticketBase->printTickets();
+            }
+            else if (bufferString.substr(0,2) == "21")
+            {
+                cout << "Wrong username or password" << endl;
+            }
+            else if (bufferString.substr(0,2) == "22")
+            {
+                cout << "Service not allowed" << endl;
+            }
+        }
+        else if(c == "s") // service
+        {
+
+        }
     }
     return 0;
 }
@@ -90,9 +117,12 @@ string Client::ticketRequest(string username, string password, int port)
 
     string data = "";
 
+    RSA* rsa = new RSA(293,233);
+    string code = rsa->encode(password,3,68269);
+
     data += Converter::fill(Converter::toString(tckt.length()), '0', 3) + tckt;
     data += Converter::fill(Converter::toString(username.length()), '0', 3) + username;
-    data += Converter::fill(Converter::toString(password.length()), '0', 3) + password;
+    data += Converter::fill(Converter::toString(code.length()), '0', 3) + code;
     data += Converter::fill(Converter::toString(portStr.length()), '0', 3) + portStr;
 
     return data;
@@ -102,20 +132,18 @@ string Client::logIn()
 {
     string username = "";
     string password = "";
+    string portStr = "";
 
     cout << "Type username:" << endl;
     getline(cin,username);
     cout << "Type password:" << endl;
     getline(cin,password);
-    RSA* rsa = new RSA(293,233);
-    string code = rsa->encode(password);
-    cout << code <<endl;
-    cout << rsa->getE() << endl;
-    cout << rsa->getN() << endl;
-    //string decode = rsa->decode(code);
-    //cout << decode <<endl;
-    string ticket = ticketRequest(username,code,7);
-    delete rsa;
+    cout << "Type port number (2007 - echo, 2013 - time)" << endl;
+    getline(cin,portStr);
+    int port = Converter::toInt(portStr);
+
+    string ticket = ticketRequest(username,password,port);
+    //delete rsa;
     return ticket;
 }
 
