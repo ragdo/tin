@@ -12,7 +12,10 @@
 using std::string;
 
 #define LINE_LENGTH_LIMIT 4096
-#define SERVER_PORT 34000
+#define SERVER_PORT_TCP_ECHO 34001
+#define SERVER_PORT_UDP_ECHO 34002
+#define SERVER_PORT_UDP_TIME 34003
+#define SERVER_PORT_UDP_TICKET 34004
 #define LISTEN_QUEUE 1024
 #define ECHO_PORT 2007
 #define TIME_PORT 2013
@@ -24,6 +27,8 @@ class Server {
 public:
     Server();
     ~Server();
+
+    static int Server::tcpUdpEchoServer();
 
     static int tcpEchoServer();
 
