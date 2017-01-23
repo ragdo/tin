@@ -12,7 +12,10 @@
 using std::string;
 
 #define LINE_LENGTH_LIMIT 4096
-#define SERVER_PORT 34000
+#define SERVER_PORT_TCP_ECHO 34001
+#define SERVER_PORT_UDP_ECHO 34002
+#define SERVER_PORT_UDP_TIME 34003
+#define SERVER_PORT_UDP_TICKET 34004
 #define LISTEN_QUEUE 1024
 
 
@@ -26,6 +29,8 @@ public:
     static int tcpEchoServer();
 
     static int udpEchoServer();
+
+    static int tcpUdpEchoServer();
 
     static int Select(int activeSockDescCount, fd_set *readSockDescSet, fd_set *writeSockDescSet, fd_set *exceptSockDescSet, struct timeval *timeout);
 

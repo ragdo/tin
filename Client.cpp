@@ -15,7 +15,7 @@ int Client::tcpEchoClient(string serverIP)
     sockDesc = Socket::CreateSocket(AF_INET, SOCK_STREAM, 0);
 
     serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(SERVER_PORT);
+    serverAddress.sin_port = htons(SERVER_PORT_TCP_ECHO);
     Socket::InetPToN(AF_INET, serverIP.c_str(), &serverAddress.sin_addr);
 
     Socket::Connect(sockDesc, (struct sockaddr *) &serverAddress, sizeof(serverAddress));
@@ -35,7 +35,7 @@ int Client::udpEchoClient(string serverIP)
     sockDesc = Socket::CreateSocket(AF_INET, SOCK_DGRAM, 0);
 
     serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(SERVER_PORT);
+    serverAddress.sin_port = htons(SERVER_PORT_UDP_ECHO);
     Socket::InetPToN(AF_INET, serverIP.c_str(), &serverAddress.sin_addr);
 
     memset(serverAddress.sin_zero, '\0', sizeof serverAddress.sin_zero);

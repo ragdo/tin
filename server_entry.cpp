@@ -5,6 +5,6 @@
 
 int main() {
     std::cout << "Starting server..." << std::endl;
-    Server::tcpEchoServer();
+    Server::tcpUdpEchoServer();
     return 0;
 }
