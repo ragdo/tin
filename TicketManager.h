@@ -14,7 +14,7 @@ public:
     static int checkTicket(string ticket, int IPver, string IPaddr, int port);
 
     static string printTicket(string ticket);
-private:
+
     static string sub(string ticket, int &index);
 };
 

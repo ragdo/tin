@@ -20,7 +20,7 @@ void TicketBase::printTickets()
 {
     for(int i=0; i<tickets.size(); ++i)
     {
-        cout << TicketManager::printTicket(tickets[i]);
+        cout <<"["<<i<<"]: "<< TicketManager::printTicket(tickets[i]);
     }
 }
 string TicketBase::getTicket(int id)
