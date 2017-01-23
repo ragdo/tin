@@ -126,6 +126,7 @@ string TicketManager::printTicket(string ticket)
     ret += "Wersja IP: " + IPverStrT;
     ret += " adres IP: " + IPaddrT;
     ret += " usluga na porcie: " + portStrT;
+    ret += " data waznosci: " + Converter::toTimeStr(tim);
     ret += " wazny: ";
     if(valid)
         ret += "tak\n";
