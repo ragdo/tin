@@ -8,11 +8,9 @@
 using std::string;
 
 #define LINE_LENGTH_LIMIT 4096 // unify with server's one
-#define SERVER_PORT 34000 // unify with server's one
-#define SERVER_PORT_TCP_ECHO 34001
-#define SERVER_PORT_UDP_ECHO 34002
-#define SERVER_PORT_UDP_TIME 34003
-#define SERVER_PORT_UDP_TICKET 34004
+#define SERVER_PORT_ECHO 2007
+#define SERVER_PORT_TIME 2013
+#define SERVER_PORT_TICKET 2000
 #define ECHO_PORT 2007
 #define TIME_PORT 2013
 

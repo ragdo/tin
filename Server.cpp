@@ -36,24 +36,44 @@ int Server::tcpUdpEchoServer()
     int tcpListenSockDesc = Socket::CreateSocket(AF_INET, SOCK_STREAM, 0);
     tcpServerAddress.sin_family = AF_INET;
     tcpServerAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-    tcpServerAddress.sin_port = htons(SERVER_PORT);
+    tcpServerAddress.sin_port = htons(SERVER_PORT_TICKET);
     Socket::Bind(tcpListenSockDesc, (struct sockaddr *) &tcpServerAddress, sizeof(tcpServerAddress));
     Socket::Listen(tcpListenSockDesc, LISTEN_QUEUE);
     maxActiveSockDesc = tcpListenSockDesc;
 
-    //create server udp socket
-    struct sockaddr_in udpServerAddress = {};
-    int udpListenSockDesc = Socket::CreateSocket(AF_INET, SOCK_DGRAM, 0);
-    udpServerAddress.sin_family = AF_INET;
-    udpServerAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-    udpServerAddress.sin_port = htons(SERVER_PORT);
-    Socket::Bind(udpListenSockDesc, (struct sockaddr *) &udpServerAddress, sizeof(udpServerAddress));
-    maxActiveSockDesc = max(tcpListenSockDesc, udpListenSockDesc);
+    //create server udp ticket socket
+    struct sockaddr_in udpTicketServerAddress = {};
+    int udpTicketListenSockDesc = Socket::CreateSocket(AF_INET, SOCK_DGRAM, 0);
+    udpTicketServerAddress.sin_family = AF_INET;
+    udpTicketServerAddress.sin_addr.s_addr = htonl(INADDR_ANY);
+    udpTicketServerAddress.sin_port = htons(SERVER_PORT_TICKET);
+    Socket::Bind(udpTicketListenSockDesc, (struct sockaddr *) &udpTicketServerAddress, sizeof(udpTicketServerAddress));
+    maxActiveSockDesc = max(tcpListenSockDesc, udpTicketListenSockDesc);
+
+    //create server udp time socket
+    struct sockaddr_in udpTimeServerAddress = {};
+    int udpTimeListenSockDesc = Socket::CreateSocket(AF_INET, SOCK_DGRAM, 0);
+    udpTimeServerAddress.sin_family = AF_INET;
+    udpTimeServerAddress.sin_addr.s_addr = htonl(INADDR_ANY);
+    udpTimeServerAddress.sin_port = htons(SERVER_PORT_TIME);
+    Socket::Bind(udpTimeListenSockDesc, (struct sockaddr *) &udpTimeServerAddress, sizeof(udpTimeServerAddress));
+    maxActiveSockDesc = max(tcpListenSockDesc, max(udpTicketListenSockDesc,udpTimeListenSockDesc));
+
+    //create server udp echo socket
+    struct sockaddr_in udpEchoServerAddress = {};
+    int udpEchoListenSockDesc = Socket::CreateSocket(AF_INET, SOCK_DGRAM, 0);
+    udpEchoServerAddress.sin_family = AF_INET;
+    udpEchoServerAddress.sin_addr.s_addr = htonl(INADDR_ANY);
+    udpEchoServerAddress.sin_port = htons(SERVER_PORT_ECHO);
+    Socket::Bind(udpEchoListenSockDesc, (struct sockaddr *) &udpEchoServerAddress, sizeof(udpEchoServerAddress));
+    maxActiveSockDesc = max(tcpListenSockDesc, max(udpTicketListenSockDesc, max(udpTimeListenSockDesc, udpEchoListenSockDesc)));
 
     //prepare FD_SET
     FD_ZERO(&allSet);
     FD_SET(tcpListenSockDesc, &allSet);
-    FD_SET(udpListenSockDesc, &allSet);
+    FD_SET(udpTicketListenSockDesc, &allSet);
+    FD_SET(udpTimeListenSockDesc, &allSet);
+    FD_SET(udpEchoListenSockDesc, &allSet);
 
     //server loop
     while(true)
@@ -96,8 +116,30 @@ int Server::tcpUdpEchoServer()
             }
         }
 /************************** UDP ANSWER *********************************/
-        if(FD_ISSET(udpListenSockDesc, &readSet))
+        if(FD_ISSET(udpTicketListenSockDesc, &readSet)
+                || FD_ISSET(udpTimeListenSockDesc, &readSet)
+                || FD_ISSET(udpEchoListenSockDesc, &readSet))
         {
+            struct sockaddr_in sockAddress = {};
+            socklen_t sockAddressLen = sizeof(sockAddress);
+
+            if(FD_ISSET(udpTicketListenSockDesc, &readSet))
+                if(getsockname(udpTicketListenSockDesc, (struct sockaddr *)&sockAddress, &sockAddressLen) < 0)
+                {
+                    logError("Error: getsockname");
+                }
+            if(FD_ISSET(udpTimeListenSockDesc, &readSet))
+                if(getsockname(udpTimeListenSockDesc, (struct sockaddr *)&sockAddress, &sockAddressLen) < 0)
+                {
+                    logError("Error: getsockname");
+                }
+            if(FD_ISSET(udpEchoListenSockDesc, &readSet))
+                if(getsockname(udpEchoListenSockDesc, (struct sockaddr *)&sockAddress, &sockAddressLen) < 0)
+                {
+                    logError("Error: getsockname");
+                }
+            
+            int socketPort = ntohs(sockAddress.sin_port);
 
             struct sockaddr_in clientAddress = {};
             socklen_t clientAddressSize = sizeof(clientAddress);
@@ -107,24 +149,41 @@ int Server::tcpUdpEchoServer()
             ssize_t recvBytesCount = 0;
 
             printf("Server is ready to read.\n");
-            recvBytesCount = Socket::Recvfrom(udpListenSockDesc, buffer, LINE_LENGTH_LIMIT,
-                                              0, (struct sockaddr *) &clientAddress, &clientAddressSize);
+
+            if(FD_ISSET(udpTicketListenSockDesc, &readSet))
+                recvBytesCount = Socket::Recvfrom(udpTicketListenSockDesc, buffer, LINE_LENGTH_LIMIT,
+                                                  0, (struct sockaddr *) &clientAddress, &clientAddressSize);
+
+            if(FD_ISSET(udpTimeListenSockDesc, &readSet))
+                recvBytesCount = Socket::Recvfrom(udpTimeListenSockDesc, buffer, LINE_LENGTH_LIMIT,
+                                                  0, (struct sockaddr *) &clientAddress, &clientAddressSize);
+
+            if(FD_ISSET(udpEchoListenSockDesc, &readSet))
+                recvBytesCount = Socket::Recvfrom(udpEchoListenSockDesc, buffer, LINE_LENGTH_LIMIT,
+                                                  0, (struct sockaddr *) &clientAddress, &clientAddressSize);
+
+
 
             int port = ntohs(clientAddress.sin_port);
             if(inet_ntop(AF_INET,&clientAddress.sin_addr, address, sizeof(address)) == NULL)
                 logError("Error: inet_ntop");
 
-            //nbytes = Socket::Recvfrom(listenSockDesc,buf,buflen,0,(struct sockaddr*)&clientAddress,&clientAddressSize);
-
             printf("Server received: %s\n", buffer);
             cout << "Port: "<<port<<endl;
-            string response = processMessage(buffer, address, port);
+            string response = processMessage(buffer, address, socketPort);
             ssize_t sendBytesCount = response.length();
             strcpy(buffer,response.c_str());
-            //FD_CLR(listenSockDesc, &readSet);
 
-            Socket::Sendto(udpListenSockDesc, buffer, sendBytesCount,
+            if(FD_ISSET(udpTicketListenSockDesc, &readSet))
+            Socket::Sendto(udpTicketListenSockDesc, buffer, sendBytesCount,
                            0, (struct sockaddr *) &clientAddress, clientAddressSize);
+            if(FD_ISSET(udpTimeListenSockDesc, &readSet))
+                Socket::Sendto(udpTimeListenSockDesc, buffer, sendBytesCount,
+                               0, (struct sockaddr *) &clientAddress, clientAddressSize);
+            if(FD_ISSET(udpEchoListenSockDesc, &readSet))
+                Socket::Sendto(udpEchoListenSockDesc, buffer, sendBytesCount,
+                               0, (struct sockaddr *) &clientAddress, clientAddressSize);
+
         }
 
         auto i = std::begin(clientSockDescs);
@@ -374,7 +433,7 @@ string Server::processMessage(string message, string address, int port)
     string response;
 
     RSA *rsa = new RSA(293,233);
-    UsersDatabase *database = new UsersDatabase("users");
+    UsersDatabase *database = new UsersDatabase("/home/user/CLionProjects/tin_ff/users");
 
     if(service == "TCKT")
     {
@@ -434,7 +493,28 @@ string Server::processMessage(string message, string address, int port)
     {
         int index = 7;
         string ticket = TicketManager::sub(message,index);
-        return ticket;
+        int ticketStatus = TicketManager::checkTicket(ticket, 4, address, port);
+        string response = Converter::toString(ticketStatus);
+        string serviceMessage;
+
+        if(ticketStatus == 10) {
+            switch (port) {
+                case SERVER_PORT_ECHO:
+                    serviceMessage = TicketManager::sub(message, index);
+                    response += Converter::fill(Converter::toString(serviceMessage.length()), '0', 3);
+                    response += serviceMessage;
+                    break;
+                case SERVER_PORT_TIME:
+                    time_t now = time(nullptr);
+                    serviceMessage = Converter::toTimeStr(now);
+                    response += Converter::fill(Converter::toString(serviceMessage.length()), '0', 3);
+                    response += serviceMessage;
+                    break;
+            }
+        }
+
+        return response;
+
     }
     else
     {

@@ -45,9 +45,7 @@ int Client::udpEchoClient(string serverIP)
     sockDesc = Socket::CreateSocket(AF_INET, SOCK_DGRAM, 0);
 
     serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(SERVER_PORT);
     Socket::InetPToN(AF_INET, serverIP.c_str(), &serverAddress.sin_addr);
-
     memset(serverAddress.sin_zero, '\0', sizeof serverAddress.sin_zero);
 
     socklen_t addr_size = sizeof serverAddress;
@@ -62,8 +60,9 @@ int Client::udpEchoClient(string serverIP)
             cout << login << endl;
             nBytes = login.length(); //??????????????????????????????
             strcpy(buffer, login.c_str());
+            serverAddress.sin_port = htons(SERVER_PORT_TICKET);
             Socket::Sendto(sockDesc,buffer,nBytes,0,(struct sockaddr *)&serverAddress,addr_size);
-            bzero(buffer,strlen(buffer));
+            bzero(buffer, buflen);
             nBytes = Socket::Recvfrom(sockDesc,buffer,buflen,0,NULL,NULL);
 
             printf("Client received from server: %s\n",buffer);
@@ -92,27 +91,53 @@ int Client::udpEchoClient(string serverIP)
                 logError("Couldn't find a ticket!");
                 continue;
             }
-            string response = "004SRVC";
+            string request = "004SRVC";
             int ticketSize = ticket.length();
             string ticketSizeStr = Converter::toString(ticketSize);
-            response += Converter::fill(ticketSizeStr,'0',3);
-            response += ticket;
+            request += Converter::fill(ticketSizeStr,'0',3);
+            request += ticket;
 
-            cout << "Write down your message in a single line." << endl;
+            int index = 0;
+            TicketManager::sub(ticket, index);
+            TicketManager::sub(ticket, index);
+            string portString = TicketManager::sub(ticket, index);
+            int portInt = Converter::toInt(portString);
+
+
             string message;
-            getline(cin,message);
+            int messageSize = 0;
+            string messageSizeStr;
 
-            int messageSize = message.length();
-            string messageSizeStr = Converter::toString(messageSize);
-            response += Converter::fill(messageSizeStr,'0',3);
-            response += message;
-            cout << "Response: " + response << endl;
-            int nBytes = response.length(); //????????????????????????????
-            strcpy(buffer, response.c_str());
+            switch(portInt)
+            {
+                case SERVER_PORT_ECHO:
+
+                    cout << "Write down your message in a single line." << endl;
+                    getline(cin,message);
+                    messageSize = message.length();
+                    messageSizeStr = Converter::toString(messageSize);
+                    request += Converter::fill(messageSizeStr,'0',3);
+                    request += message;
+                    serverAddress.sin_port = htons(SERVER_PORT_ECHO);
+                    break;
+                case SERVER_PORT_TIME:
+                    serverAddress.sin_port = htons(SERVER_PORT_TIME);
+                    break;
+
+                default:
+                    logError("Error: Unexpected service port in ticket.");
+                    break;
+            }
+
+
+
+            cout << "Client sent: " + request << endl;
+            int nBytes = request.length(); //????????????????????????????
+            strcpy(buffer, request.c_str());
             Socket::Sendto(sockDesc,buffer,nBytes,0,(struct sockaddr *)&serverAddress,addr_size);
             bzero(buffer,strlen(buffer));
             nBytes = Socket::Recvfrom(sockDesc,buffer,buflen,0,NULL,NULL);
-            cout << buffer << endl;
+            cout << "Client received: " << buffer << endl;
         }
         else if(c == "q")
         {

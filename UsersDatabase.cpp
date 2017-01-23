@@ -109,7 +109,7 @@ bool UsersDatabase::writeFile(string fileID)
         int lenS = users[i].services.size();
         for(int j=0; j<lenS; ++j)
         {
-            outfile<<" "<<users[i].services[j];
+            outfile << " " << users[i].services[j];
         }
         outfile<<endl;
     }

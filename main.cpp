@@ -1,9 +1,16 @@
 #include <iostream>
+#include <string>
 
-#include "Client.h"
+#include "UsersDatabase.h"
 
 int main() {
-    std::cout << "Starting client..." << std::endl;
-    Client::tcpEchoClient("127.0.0.1");
+
+    UsersDatabase db;
+    std::vector<std::string> v;
+    v.push_back("echo");
+    v.push_back("time");
+    db.addUser("daniel", "haslo", v);
+    db.writeFile("./users");
+
     return 0;
 }

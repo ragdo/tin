@@ -10,7 +10,7 @@
 using std::string;
 
 #define LINE_LENGTH_LIMIT 4096
-#define SERVER_PORT 34000
+#define SERVER_PORT 2007
 #define LISTEN_QUEUE 1024
 
 
