@@ -54,13 +54,13 @@ int Client::udpEchoClient(string serverIP)
     while(1)
     {
         fflush(stdin);
-        cout << "Do you want to request (s)ervice or get (t)icket?" << endl;
+        cout << "Do you want to request (s)ervice, get (t)icket or (q)uit? " << endl;
         getline(cin,c);
         if(c == "t") // ticket
         {
             string login = logIn();
             cout << login << endl;
-            nBytes = login.length() + 1;
+            nBytes = login.length(); //??????????????????????????????
             strcpy(buffer, login.c_str());
             Socket::Sendto(sockDesc,buffer,nBytes,0,(struct sockaddr *)&serverAddress,addr_size);
             bzero(buffer,strlen(buffer));
@@ -86,7 +86,37 @@ int Client::udpEchoClient(string serverIP)
         }
         else if(c == "s") // service
         {
+            string ticket = ticketBase->chooseTicket();
+            if(ticket == "")
+            {
+                logError("Couldn't find a ticket!");
+                continue;
+            }
+            string response = "004SRVC";
+            int ticketSize = ticket.length();
+            string ticketSizeStr = Converter::toString(ticketSize);
+            response += Converter::fill(ticketSizeStr,'0',3);
+            response += ticket;
 
+            cout << "Write down your message in a single line." << endl;
+            string message;
+            getline(cin,message);
+
+            int messageSize = message.length();
+            string messageSizeStr = Converter::toString(messageSize);
+            response += Converter::fill(messageSizeStr,'0',3);
+            response += message;
+            cout << "Response: " + response << endl;
+            int nBytes = response.length(); //????????????????????????????
+            strcpy(buffer, response.c_str());
+            Socket::Sendto(sockDesc,buffer,nBytes,0,(struct sockaddr *)&serverAddress,addr_size);
+            bzero(buffer,strlen(buffer));
+            nBytes = Socket::Recvfrom(sockDesc,buffer,buflen,0,NULL,NULL);
+            cout << buffer << endl;
+        }
+        else if(c == "q")
+        {
+            break;
         }
     }
     return 0;

@@ -41,7 +41,7 @@ public:
 
     static void logError(string error);
 
-    static string processMessage(string message, string address);
+    static string processMessage(string message, string address, int port);
 };
 
 

@@ -102,8 +102,7 @@ int Server::tcpUdpEchoServer()
             struct sockaddr_in clientAddress = {};
             socklen_t clientAddressSize = sizeof(clientAddress);
             char address[128];
-            if(inet_ntop(AF_INET,&clientAddress.sin_addr, address, sizeof(address)) == NULL)
-                logError("Error: inet_ntop");
+
             char buffer[LINE_LENGTH_LIMIT];
             ssize_t recvBytesCount = 0;
 
@@ -111,12 +110,15 @@ int Server::tcpUdpEchoServer()
             recvBytesCount = Socket::Recvfrom(udpListenSockDesc, buffer, LINE_LENGTH_LIMIT,
                                               0, (struct sockaddr *) &clientAddress, &clientAddressSize);
 
-
+            int port = ntohs(clientAddress.sin_port);
+            if(inet_ntop(AF_INET,&clientAddress.sin_addr, address, sizeof(address)) == NULL)
+                logError("Error: inet_ntop");
 
             //nbytes = Socket::Recvfrom(listenSockDesc,buf,buflen,0,(struct sockaddr*)&clientAddress,&clientAddressSize);
 
             printf("Server received: %s\n", buffer);
-            string response = processMessage(buffer, address);
+            cout << "Port: "<<port<<endl;
+            string response = processMessage(buffer, address, port);
             ssize_t sendBytesCount = response.length();
             strcpy(buffer,response.c_str());
             //FD_CLR(listenSockDesc, &readSet);
@@ -363,7 +365,7 @@ void Server::logError(string error)
     std::cerr << "Error: " << error << std::endl;
 }
 
-string Server::processMessage(string message, string address)
+string Server::processMessage(string message, string address, int port)
 {
     string serviceSizeStr = message.substr(0,3);
     int servSize = Converter::toInt(serviceSizeStr);
@@ -386,9 +388,7 @@ string Server::processMessage(string message, string address)
         int poSize = Converter::toInt(portSizeStr);
         string portStr = message.substr(12+servSize+unSize+pwSize,poSize);
 
-        //cout << username << endl;
-        //cout << password << endl;
-        //cout << portStr << endl;
+
         int reqPort = Converter::toInt(portStr);
         password = rsa->decode(password);
         cout << password << endl;
@@ -399,7 +399,7 @@ string Server::processMessage(string message, string address)
             logError(response);
             return response;
         }
-        if(reqPort == 2007)
+        if(reqPort == ECHO_PORT)
         {
             bool pass = database->checkService(username,"echo");
             if(!pass)
@@ -408,11 +408,20 @@ string Server::processMessage(string message, string address)
                 logError(response);
                 return response;
             }
-            response = "10"+TicketManager::createTicket(4,address,2007,1000*60*60);
+            response = "10"+TicketManager::createTicket(4,address,reqPort,1000);
             return response;
         }
-        else if(reqPort == 2013)
+        else if(reqPort == TIME_PORT)
         {
+            bool pass = database->checkService(username,"time");
+            if(!pass)
+            {
+                response = "22";
+                logError(response);
+                return response;
+            }
+            response = "10"+TicketManager::createTicket(4,address,reqPort,1000);
+            return response;
         }
         else
         {
@@ -423,10 +432,14 @@ string Server::processMessage(string message, string address)
     }
     else if(service == "SRVC")
     {
+        int index = 7;
+        string ticket = TicketManager::sub(message,index);
+        return ticket;
     }
     else
     {
         logError("No service: "+service);
+        return "No service: "+service;
     }
 }
 
