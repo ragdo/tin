@@ -178,6 +178,7 @@ int Client::runClient(string serverIP)
                     cout << "Timeout: "  << tries << " try" << endl;
                     if(tries > 3)
                         break;
+                    Socket::Sendto(sockDesc,buffer,nBytes,0,(struct sockaddr *)&serverAddress,addr_size);
                     tries++;
                     tv.tv_sec++;
                 }
