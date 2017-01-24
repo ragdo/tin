@@ -36,7 +36,7 @@ int Server::tcpUdpEchoServer()
     int tcpListenSockDesc = Socket::CreateSocket(AF_INET, SOCK_STREAM, 0);
     tcpServerAddress.sin_family = AF_INET;
     tcpServerAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-    tcpServerAddress.sin_port = htons(SERVER_PORT_TICKET);
+    tcpServerAddress.sin_port = htons(SERVER_PORT_ECHO);
     Socket::Bind(tcpListenSockDesc, (struct sockaddr *) &tcpServerAddress, sizeof(tcpServerAddress));
     Socket::Listen(tcpListenSockDesc, LISTEN_QUEUE);
     maxActiveSockDesc = tcpListenSockDesc;
@@ -138,7 +138,7 @@ int Server::tcpUdpEchoServer()
                 {
                     logError("Error: getsockname");
                 }
-            
+
             int socketPort = ntohs(sockAddress.sin_port);
 
             struct sockaddr_in clientAddress = {};
@@ -233,7 +233,7 @@ int Server::tcpEchoServer()
 
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-    serverAddress.sin_port = htons(SERVER_PORT);
+    serverAddress.sin_port = htons(SERVER_PORT_ECHO);
 
     Socket::Bind(listenSockDesc, (struct sockaddr *) &serverAddress, sizeof(serverAddress));
 
@@ -433,7 +433,7 @@ string Server::processMessage(string message, string address, int port)
     string response;
 
     RSA *rsa = new RSA(293,233);
-    UsersDatabase *database = new UsersDatabase("/home/user/CLionProjects/tin_ff/users");
+    UsersDatabase *database = new UsersDatabase("users");
 
     if(service == "TCKT")
     {
@@ -467,7 +467,7 @@ string Server::processMessage(string message, string address, int port)
                 logError(response);
                 return response;
             }
-            response = "10"+TicketManager::createTicket(4,address,reqPort,1000);
+            response = "10"+TicketManager::createTicket(4,address,reqPort, 30);
             return response;
         }
         else if(reqPort == TIME_PORT)
@@ -479,7 +479,7 @@ string Server::processMessage(string message, string address, int port)
                 logError(response);
                 return response;
             }
-            response = "10"+TicketManager::createTicket(4,address,reqPort,1000);
+            response = "10"+TicketManager::createTicket(4,address,reqPort,30);
             return response;
         }
         else

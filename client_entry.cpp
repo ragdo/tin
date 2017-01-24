@@ -6,7 +6,8 @@
 int main() {
     std::cout << "Starting client..." << std::endl;
     Client client;
-    client.udpEchoClient("127.0.0.1");
+    client.runClient("127.0.0.1");
+    //client.tcpEchoClient("127.0.0.1");
     return 0;
 }
 

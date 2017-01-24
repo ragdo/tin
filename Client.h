@@ -23,7 +23,7 @@ public:
     ~Client();
 
     static int tcpEchoClient(string serverIP);
-    int udpEchoClient(string serverIP);
+    int runClient(string serverIP);
 
     static void str_cli(FILE *fp, int sockfd);
 

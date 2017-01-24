@@ -1,5 +1,6 @@
 #include "Client.h"
 #include "Socket.h"
+#include "Server.h"
 
 #include <cstring>
 
@@ -23,7 +24,7 @@ int Client::tcpEchoClient(string serverIP)
     sockDesc = Socket::CreateSocket(AF_INET, SOCK_STREAM, 0);
 
     serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(SERVER_PORT);
+    serverAddress.sin_port = htons(SERVER_PORT_ECHO);
     Socket::InetPToN(AF_INET, serverIP.c_str(), &serverAddress.sin_addr);
 
     Socket::Connect(sockDesc, (struct sockaddr *) &serverAddress, sizeof(serverAddress));
@@ -33,7 +34,7 @@ int Client::tcpEchoClient(string serverIP)
     return 0;
 }
 
-int Client::udpEchoClient(string serverIP)
+int Client::runClient(string serverIP)
 {
     int sockDesc;
     int buflen = 1024;
@@ -111,14 +112,26 @@ int Client::udpEchoClient(string serverIP)
             switch(portInt)
             {
                 case SERVER_PORT_ECHO:
-
-                    cout << "Write down your message in a single line." << endl;
-                    getline(cin,message);
-                    messageSize = message.length();
-                    messageSizeStr = Converter::toString(messageSize);
-                    request += Converter::fill(messageSizeStr,'0',3);
-                    request += message;
-                    serverAddress.sin_port = htons(SERVER_PORT_ECHO);
+                    do
+                    {
+                        cout << "Use (t)cp or (u)dp?" <<  endl;
+                        getline(cin,c);
+                        fflush(stdin);
+                    }while(c != "t" && c != "u");
+                    if(c == "t")
+                    {
+                        tcpEchoClient("127.0.0.1");
+                    }
+                    else
+                    {
+                        cout << "Write down your message in a single line." << endl;
+                        getline(cin,message);
+                        messageSize = message.length();
+                        messageSizeStr = Converter::toString(messageSize);
+                        request += Converter::fill(messageSizeStr,'0',3);
+                        request += message;
+                        serverAddress.sin_port = htons(SERVER_PORT_ECHO);
+                    }
                     break;
                 case SERVER_PORT_TIME:
                     serverAddress.sin_port = htons(SERVER_PORT_TIME);
@@ -136,8 +149,69 @@ int Client::udpEchoClient(string serverIP)
             strcpy(buffer, request.c_str());
             Socket::Sendto(sockDesc,buffer,nBytes,0,(struct sockaddr *)&serverAddress,addr_size);
             bzero(buffer,strlen(buffer));
+            fd_set readSet;
+            fd_set allSet;
+            FD_ZERO(&allSet);
+            FD_SET(sockDesc, &allSet);
+            timeval tv;
+            tv.tv_sec = 1;
+            tv.tv_usec = 0;
+            int tries = 1;
+            while(true)
+            {
+                readSet = allSet;
+
+                int readySockCount = Server::Select(sockDesc + 1,
+                                        &readSet,
+                                        nullptr,
+                                        nullptr,
+                                        &tv);
+                if(readySockCount == 0)
+                {
+                    cout << "Timeout: "  << tries << " try" << endl;
+                    if(tries > 3)
+                        break;
+                    tries++;
+                    tv.tv_sec++;
+                }
+                else
+                    break;
+            }
+
+            if(tries > 3)
+            {
+                cout << "Failed waiting for response" << endl;
+                continue;
+            }
+
             nBytes = Socket::Recvfrom(sockDesc,buffer,buflen,0,NULL,NULL);
-            cout << "Client received: " << buffer << endl;
+            string res = buffer;
+            cout << "Client received: " << res << endl;
+            int resCode = Converter::toInt(res.substr(0, 2));
+            string resData;
+            index = 2;
+
+            switch(resCode)
+            {
+                case 10:
+                    resData = TicketManager::sub(res, index);
+                    cout << "Data: " << resData << endl;
+                    break;
+                case 25:
+                    cout << "Bad ticket" <<  endl;
+                    break;
+                case 24:
+                    cout << "IP address does not match" << endl;
+                    break;
+                case 23:
+                    cout << "Ticket expired" << endl;
+                    break;
+                case 22:
+                    cout << "Service not allowed" << endl;
+                    break;
+                default:
+                    cout << "Bad request" << endl;
+            }
         }
         else if(c == "q")
         {
