@@ -9,7 +9,14 @@
 
 Client::Client()
 {
+    string add = Socket::Address();
     ticketBase = new TicketBase();
+    ticketBase->addTicket(TicketManager::createTicket(7, add, 2013, 300));
+    ticketBase->addTicket(TicketManager::createTicket(4, "1.2.3.4", 2013, 300));
+    ticketBase->addTicket(TicketManager::createTicket(4, add, 2005, 300));
+    string ticket = TicketManager::createTicket(6, add, 2013, 300);
+    ticket[3] = '4';
+    ticketBase->addTicket(ticket);
 }
 Client::~Client()
 {

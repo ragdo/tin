@@ -20,6 +20,7 @@ public:
     static char* read_ptr;
     static char read_buf[LINE_LENGTH_LIMIT];
 
+    static string Address();
     static int CreateSocket(int family, int type, int protocol);
     static void Bind(int sockDesc, const struct sockaddr *sockAddr, socklen_t sockAddrLen);
     static void Listen(int sockDesc, int backlog);
