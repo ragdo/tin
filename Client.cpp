@@ -71,6 +71,43 @@ int Client::runClient(string serverIP)
             serverAddress.sin_port = htons(SERVER_PORT_TICKET);
             Socket::Sendto(sockDesc,buffer,nBytes,0,(struct sockaddr *)&serverAddress,addr_size);
             bzero(buffer, buflen);
+
+            fd_set readSet;
+            fd_set allSet;
+            FD_ZERO(&allSet);
+            FD_SET(sockDesc, &allSet);
+            timeval tv;
+            tv.tv_sec = 1;
+            tv.tv_usec = 0;
+            int tries = 1;
+            while(true)
+            {
+                readSet = allSet;
+
+                int readySockCount = Server::Select(sockDesc + 1,
+                                        &readSet,
+                                        nullptr,
+                                        nullptr,
+                                        &tv);
+                if(readySockCount == 0)
+                {
+                    cout << "Timeout: "  << tries << " try" << endl;
+                    if(tries > 3)
+                        break;
+                    Socket::Sendto(sockDesc,buffer,nBytes,0,(struct sockaddr *)&serverAddress,addr_size);
+                    tries++;
+                    tv.tv_sec++;
+                }
+                else
+                    break;
+            }
+
+            if(tries > 3)
+            {
+                cout << "Failed waiting for response" << endl;
+                continue;
+            }
+
             nBytes = Socket::Recvfrom(sockDesc,buffer,buflen,0,NULL,NULL);
 
             printf("Client received from server: %s\n",buffer);
@@ -127,7 +164,8 @@ int Client::runClient(string serverIP)
                     }while(c != "t" && c != "u");
                     if(c == "t")
                     {
-                        tcpEchoClient("127.0.0.1");
+                        tcpEchoClient(serverIP);
+                        continue;
                     }
                     else
                     {

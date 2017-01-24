@@ -18,6 +18,7 @@ using std::string;
 class Client {
     int e, n;
     TicketBase *ticketBase;
+    string serverAddress;
 public:
     Client();
     ~Client();
