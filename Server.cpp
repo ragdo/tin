@@ -437,7 +437,16 @@ string Server::processMessage(string message, string address, int port)
 
     if(service == "TCKT")
     {
-        string usernameSizeStr = message.substr(3+servSize,3);
+        int ind = 7;
+
+        //string usernameSizeStr = TicketManager::sub(message, ind);
+        string username = TicketManager::sub(message, ind);
+        //string passwordSizeStr = TicketManager::sub(message, ind);
+        string password = TicketManager::sub(message, ind);
+        //string portSizeStr = TicketManager::sub(message, ind);
+        string portStr = TicketManager::sub(message, ind);
+
+        /*string usernameSizeStr = message.substr(3+servSize,3);
         int unSize = Converter::toInt(usernameSizeStr);
         string username = message.substr(6+servSize,unSize);
         string passwordSizeStr = message.substr(6+servSize+unSize,3);
@@ -445,7 +454,7 @@ string Server::processMessage(string message, string address, int port)
         string password = message.substr(9+servSize+unSize,pwSize);
         string portSizeStr = message.substr(9+servSize+unSize+pwSize,3);
         int poSize = Converter::toInt(portSizeStr);
-        string portStr = message.substr(12+servSize+unSize+pwSize,poSize);
+        string portStr = message.substr(12+servSize+unSize+pwSize,poSize);*/
 
 
         int reqPort = Converter::toInt(portStr);
