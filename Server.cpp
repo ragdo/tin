@@ -205,7 +205,22 @@ int Server::tcpUdpEchoServer()
                 }
                 else
                 {
-                    Socket::WriteBytes(clientSockDesc, buf, recvBytesCount);
+                cout << buf << endl;
+                    struct sockaddr_in sockAddress = {};
+                    socklen_t sockAddressLen = sizeof(sockAddress);
+
+                    if(getsockname(clientSockDesc, (struct sockaddr *)&sockAddress, &sockAddressLen) < 0)
+                    {
+                        logError("Error: getsockname");
+                    }
+                    char address[128];
+                    if(inet_ntop(AF_INET,&sockAddress.sin_addr, address, sizeof(address)) == NULL)
+                        logError("Error: inet_ntop");
+                    string message = buf;
+                    string reply = processMessage(message, address, SERVER_PORT_ECHO) + '\n';
+                    strcpy(buf, reply.c_str());
+                    Socket::WriteBytes(clientSockDesc, buf, reply.length());
+                    //cout << reply << endl;
                 }
 
                 if(--readySockCount <= 0)
@@ -426,6 +441,9 @@ void Server::logError(string error)
 
 string Server::processMessage(string message, string address, int port)
 {
+    if(message.length() < 7)
+        return "20";
+
     string serviceSizeStr = message.substr(0,3);
     int servSize = Converter::toInt(serviceSizeStr);
     string service = message.substr(3,servSize);

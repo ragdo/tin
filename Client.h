@@ -18,15 +18,15 @@ using std::string;
 class Client {
     int e, n;
     TicketBase *ticketBase;
-    string serverAddress;
 public:
     Client();
     ~Client();
 
-    static int tcpEchoClient(string serverIP);
+    static int tcpEchoClient(string serverIP, string ticket);
     int runClient(string serverIP);
 
     static void str_cli(FILE *fp, int sockfd);
+    static void str_cli2(int sockfd, string ticket);
 
     static string ticketRequest(string username, string password, int port);
     static string logIn();

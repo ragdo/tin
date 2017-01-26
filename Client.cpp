@@ -23,7 +23,7 @@ Client::~Client()
     delete ticketBase;
 }
 
-int Client::tcpEchoClient(string serverIP)
+int Client::tcpEchoClient(string serverIP, string ticket)
 {
     int sockDesc;
     struct sockaddr_in serverAddress = {};
@@ -36,7 +36,7 @@ int Client::tcpEchoClient(string serverIP)
 
     Socket::Connect(sockDesc, (struct sockaddr *) &serverAddress, sizeof(serverAddress));
 
-    str_cli(stdin, sockDesc);
+    str_cli2(sockDesc, ticket);
 
     return 0;
 }
@@ -127,6 +127,10 @@ int Client::runClient(string serverIP)
             {
                 cout << "Service not allowed" << endl;
             }
+            else
+            {
+                cout << "Bad request" << endl;
+            }
         }
         else if(c == "s") // service
         {
@@ -164,7 +168,7 @@ int Client::runClient(string serverIP)
                     }while(c != "t" && c != "u");
                     if(c == "t")
                     {
-                        tcpEchoClient(serverIP);
+                        tcpEchoClient(serverIP, request);
                         continue;
                     }
                     else
@@ -283,6 +287,57 @@ void Client::str_cli(FILE *fp, int sockfd) {
         Fputs(recvline, stdout);
     }
 
+}
+
+void Client::str_cli2(int sockfd, string ticket) {
+    char sendline[LINE_LENGTH_LIMIT];
+    char recvline[LINE_LENGTH_LIMIT];
+    string message;
+    cout << "Write down your message in a single line." << endl;
+    //getline(cin,message);
+    getline(cin, message);
+    int messageSize = message.length();
+    string messageSizeStr = Converter::toString(messageSize);
+    ticket += Converter::fill(messageSizeStr,'0',3);
+    ticket += message;
+    strcpy(sendline, ticket.c_str());
+    Socket::WriteBytes(sockfd, sendline, strlen(sendline));
+
+    if(Socket::Readline(sockfd, recvline, LINE_LENGTH_LIMIT) == 0)
+    {
+        logError("str_cli: server terminated prematurely");
+    }
+
+    string res = recvline;
+    cout << "Client received: " << res << endl;
+
+
+    int resCode = Converter::toInt(res.substr(0, 2));
+    string resData;
+    int index = 2;
+
+    switch(resCode)
+    {
+        case 10:
+            resData = TicketManager::sub(res, index);
+            cout << "Data: " << resData << endl;
+            break;
+        case 25:
+            cout << "Bad ticket" <<  endl;
+            break;
+        case 24:
+            cout << "IP address does not match" << endl;
+            break;
+        case 23:
+            cout << "Ticket expired" << endl;
+            break;
+        case 22:
+            cout << "Service not allowed" << endl;
+            break;
+        default:
+            cout << "Bad request" << endl;
+    }
+    close(sockfd);
 }
 
 string Client::ticketRequest(string username, string password, int port)
